@@ -28,7 +28,8 @@ def send_otp(otp, phone_number):
 def send_review(face_id):
     #TODO: update with group member's phone
     phone_number = 000 
-    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + face_id
+    #include face and file ID
+    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "faceid=" + face_id + "&filename=" + filename
     
     #TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have recieved a visitor verification request. For more information please go here: " + visitor_verification_link
