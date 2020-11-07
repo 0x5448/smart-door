@@ -59,14 +59,22 @@
         var apiUrl = "https://bhfq3cpmxi.execute-api.us-east-1.amazonaws.com/v1/visitor-verification";
         var name = $("#name-input").val();
         var phone = $("#phone-input").val();
+        var url = window.location.href //in sms link sent to user, have img var in link
+
+        if (url){
+          faceID = url.split('?')[1]
+        }
+        else{
+          faceID = "-1"
+        }
 
         var data = {
           name: name,
-          phone : phone
+          phone : phone,
+          faceID : faceID
           };
         
         console.log(data)
-
         $.ajax({
           type: "POST",
           url : apiUrl,

@@ -73,16 +73,16 @@
           contentType: "application/json; charset=utf-8",
           data: JSON.stringify(data),
 
-          success: function () {
+          success: function (response) {
             // clear form and show a success message
-            alert("Successfull");
+            alert(response['body']);
             document.getElementById("contact-form").reset();
 
         location.reload();
           },
-          error: function () {
+          error: function (response) {
             // show an error message
-            alert("UnSuccessfull");
+            alert(response['body']);
           }});
         }
     </script>
