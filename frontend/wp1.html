@@ -1,0 +1,99 @@
+<!-- Template: http://getbootstrap.com/examples/cover/ -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Virtual Door (WP1)</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="./assets/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="./assets/css/main.css" rel="stylesheet">
+  </head>
+
+  <body>
+
+    <div class="site-wrapper white">
+
+      <div class="site-wrapper-inner">
+
+        <div class="cover-container">
+
+          <div class="masthead clearfix">
+            <div class="inner">
+              <h3 class="masthead-brand">Visitor Verification</h3>
+            </div>
+          </div>
+
+          <div class="inner">
+            <div class="inner">
+              <form>
+                <div class="form-group">
+                  <label for="phone">Vistor's Name:</label>
+                  <input type="text" class="form-control" id="name-input" placeholder="First name">
+
+                </div>
+                <div class="form-group">
+                  <label for="exampleInputPassword1">Visitor's Phone Number</label>
+                  <input type="tel" class="form-control" id="phone-input" name="phone" placeholder="+0 000 000 0000" >
+                </div>
+                <button type="submit" onClick="sendToAPI(event)" class="btn btn-primary">Submit</button>
+
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <script>
+      function sendToAPI(e){
+        e.preventDefault();
+        var apiUrl = "https://bhfq3cpmxi.execute-api.us-east-1.amazonaws.com/v1/visitor-verification";
+        var name = $("#name-input").val();
+        var phone = $("#phone-input").val();
+
+        var data = {
+          name: name,
+          phone : phone
+          };
+        
+        console.log(data)
+
+        $.ajax({
+          type: "POST",
+          url : apiUrl,
+          dataType: "json",
+          crossDomain: "true",
+          contentType: "application/json; charset=utf-8",
+          data: JSON.stringify(data),
+
+          success: function () {
+            // clear form and show a success message
+            alert("Successfull");
+            document.getElementById("contact-form").reset();
+
+        location.reload();
+          },
+          error: function () {
+            // show an error message
+            alert("UnSuccessfull");
+          }});
+        }
+    </script>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <!-- <script>window.jQuery || document.write('<script src="./assets/js/vendor/jquery.min.js"><\/script>')</script> -->
+    <script src="./assets/js/bootstrap.min.js"></script>
+  </body>
+</html>
