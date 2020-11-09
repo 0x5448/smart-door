@@ -38,8 +38,9 @@
 
                 </div>
                 <div class="form-group">
-                  <label for="exampleInputPassword1">Visitor's Phone Number</label>
-                  <input type="tel" class="form-control" id="phone-input" name="phone" placeholder="+0 000 000 0000" >
+                  <label for="phone">Visitor's Phone Number:</label>
+                  <input type="tel" class="form-control" id="phone-input" name="phone">
+                  <small class="form-text text-muted">Please input a 10 digit phone number</small>
                 </div>
                 <button type="submit" onClick="sendToAPI(event)" class="btn btn-primary">Submit</button>
 
@@ -59,19 +60,32 @@
         var apiUrl = "https://bhfq3cpmxi.execute-api.us-east-1.amazonaws.com/v1/visitor-verification";
         var name = $("#name-input").val();
         var phone = $("#phone-input").val();
-        var url = window.location.href //in sms link sent to user, have img var in link
+        var url = window.location.href //in sms link sent to user, have img var and file var in link
 
         if (url){
-          faceID = url.split('?')[1]
-        }
-        else{
-          faceID = "-1"
+          variables = url.split('?')[1].split('&')
+          try{
+            face = variables[0].split('=')
+            file = variables[1].split('=')
+            
+            if (face[0] == "faceid"){
+              faceID = face[1]
+            }
+            if (file[1] == "filename"){
+              filename = file[1]
+            }
+          }
+          catch(err){
+            faceID = "-1"
+            filename = "-1"
+          }
         }
 
         var data = {
           name: name,
           phone : phone,
-          faceID : faceID
+          faceID : faceID,
+          filename : filename
           };
         
         console.log(data)
