@@ -12,7 +12,7 @@ build/Makefile, add the following line in the environment section:
    - `export AWS_ACCESS_KEY_ID=YourAccessKeyId`
    - `export AWS_SECRET_ACCESS_ID=YourSecretAccessKeyId`
    - `export AWS_DEFAULT_REGION=us-east-1`
-5. Run `./start-streamer.sh`, and watch your beautiful self in the AWS Kinesis web console
+5. Run `timeout 12 ./start-streamer.sh`, and watch your beautiful self in the AWS Kinesis web console
 
 
 #### Appendix
