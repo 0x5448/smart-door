@@ -7,11 +7,13 @@ import cv2
 import json
 from random import randint
 import uuid
+import datetime
 
 COLLECTION = 'faces'  # Rekognition collection
 REGION = 'us-east-1'
 BUCKET = 'smart-door-image-store'  # s3://<ExternalImageId>/<ImageId>
-
+EXPIRY_5 = 60 * 5
+ 
 s3_client = boto3.client('s3')
 sns_client = boto3.client('sns')
 s3_resource = boto3.resource('s3')
@@ -105,7 +107,6 @@ def get_image_from_stream(payload):
 
 
 # Store face in s3 bucket and return ExternalImageId
-# def upload_visitor_image_to_s3(dict_payload, ExternalImageId):
 def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     unique_img_id = str(uuid.uuid4())  # Generate a unique identifier for this image
     # Upload the file to S3
@@ -117,9 +118,38 @@ def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
         logging.error(e)
     return object_key
 
+# Udpate visitor information with new image 
+def update_visitor(visitor, s3_object_key):
+    external_image_id = visitor['Item']['ExternalImageId']
+    name = visitor['Item']['name']
+    phone_number = visitor['Item']['phoneNumber']
+    
+    new_photo = {
+        'objectKey' : s3_object_key,
+        'bucket' : bucket,
+        'createdTimestamp' : datetime.datetime.now().isoformat(timespec='seconds')
+    }
+    photos = visitor['Item']['photos'].append(new_photo)
+
+    visitor = {
+        'ExternalImageId' : external_image_id,
+        'name' : name,
+        'phoneNumber' : phone_number,
+        'photos' : photos
+    }
+    visitors.put_item(Item=visitor)
+
+#store otp and expiration for known visitor
+def store_otp(otp, phone_number, range=EXPIRY_5):
+    password = {
+        'PhoneNumber': phone_number,
+        'OTP': otp,
+        'ExpTime': str(int(time.time()) + range)
+    }
+    passcodes.put_item(Item=password)
 
 # send SMS with OTP if it's a known visitor
-def send_otp(otp, phone_number):
+def send_sms(otp, phone_number):
     message = "Welcome back! Here is your one time password: \"" + otp + "\". This password will expire in 5 minutes."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
@@ -145,11 +175,6 @@ def get_ExternalImageId(dict_payload):
 
 
 def lambda_handler(event, context):
-    # print('i was triggered')
-    # return {
-    #        'statusCode': 200,
-    #        'body': json.dumps('Hello from Lambda!')
-    #    }
     payload = get_payload_from_event(event)  # Decode the event record
 
     ''' If known visitor, do the following:
@@ -168,20 +193,20 @@ def lambda_handler(event, context):
         index_faces(s3_object_key, ExternalImageId)
 
         # Return visitor information by finding photoID key in visitor table
-        # visitor = dynamo_visitors_table.get_item(Key=faceID)
-        # phone_number = visitor['phoneNumber']
+        visitor = dynamo_visitors_table.get_item(Key=ExternalImageId)
 
-        # generate 6 digit OTP
-        range_start = 10 ** (6 - 1)
-        range_end = (10 ** 6) - 1
-        otp = randint(range_start, range_end)
-
-        # append faceID in visitor dynamoDB object list
+        # append faceId in visitor dynamoDB object list
+        update_visitor(visitor, s3_object_key)
 
         # add password and expiriation to password dynamo
+        phone_number = visitor['Item']['phoneNumber']
+        
+        # create and store OTP in passwords table
+        otp = str(random.randint(100001, 999999))
+        store_otp(otp, phone_number)
 
-        # send sms to returning visitor
-        # send_otp(otp, phone_number)
+        # Send sms to returning visitor
+        send_sms(otp, phone_number)
 
     # Else, send visitor info to owner for review
     else:
