@@ -28,7 +28,7 @@
               <h3 class="masthead-brand">Visitor Verification</h3>
             </div>
           </div>
-
+          <div id="visitor"></div>
           <div class="inner">
             <div class="inner">
               <form>
@@ -56,6 +56,17 @@
     </div>
 
     <script>
+
+      var url = window.location.href
+      variables = url.split('?')[1].split('&')
+      file = variables[1].split('=')
+      filename = file[1]
+
+      var img = document.createElement("img");
+      img.src = "https://https://smart-door-image-store.s3.amazonaws.com/" + filename;
+      var src = document.getElementById("visitor");
+      src.appendChild(img);
+
       var apiUrl = "https://bhfq3cpmxi.execute-api.us-east-1.amazonaws.com/v1/visitor-verification";
       function parseURL(url){
         variables = url.split('?')[1].split('&')

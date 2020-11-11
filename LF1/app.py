@@ -8,6 +8,9 @@ import json
 from random import randint
 import uuid
 import datetime
+import logging
+import time
+import random
 
 COLLECTION = 'faces'  # Rekognition collection
 REGION = 'us-east-1'
@@ -19,9 +22,9 @@ sns_client = boto3.client('sns')
 s3_resource = boto3.resource('s3')
 kvs_video_client = boto3.client('kinesisvideo')
 rekognition = boto3.client("rekognition", REGION)
-dynamo_resource = boto3.resource('dynamodb')
-dynamo_visitors_table = dynamo_resource.Table("visitors")
-dynamo_passcodes_table = dynamo_resource.Table('passcodes')
+dynamodb = boto3.resource('dynamodb')
+visitors = dynamodb.Table('visitors')
+passcodes = dynamodb.Table('passcodes')
 bucket = "smart-door-image-store"
 
 
@@ -155,7 +158,7 @@ def send_sms(otp, phone_number):
 
 
 # send SMS requesting access if it's an unknown visitor
-def send_review(face_id):
+def send_review(face_id, filename):
     # TODO: update with group member's phone
     phone_number = 000
     # include face and file ID
@@ -193,7 +196,7 @@ def lambda_handler(event, context):
         index_faces(s3_object_key, ExternalImageId)
 
         # Return visitor information by finding photoID key in visitor table
-        visitor = dynamo_visitors_table.get_item(Key=ExternalImageId)
+        visitor = visitors.get_item(Key=ExternalImageId)
 
         # append faceId in visitor dynamoDB object list
         update_visitor(visitor, s3_object_key)
@@ -213,8 +216,12 @@ def lambda_handler(event, context):
         # Generate a unique ID for the new visitor
         ExternalImageId = str(uuid.uuid4())
 
+        # filename -> s3_object_key
+        # TODO: make this image public and turn it private in LF0 once the request is approved/denied
+        filename = ''
+
         # store new face in visitors table
-        send_review(ExternalImageId)
+        send_review(ExternalImageId, filename)
 
     return {
         'statusCode': 200,
