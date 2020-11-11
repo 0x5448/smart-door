@@ -75,12 +75,8 @@ def delete_visitor_image_from_s3(s3_object_key):
     )
 
 
-def visitor_is_accepted():
-    return False # TODO: write this func
-
-
 def lambda_handler(event, context):
-    if visitor_is_accepted:
+    if event['status'] == "accept":
         name = event['name']
         phone_number = event['phone']
         face_id = event['faceID']
@@ -104,6 +100,7 @@ def lambda_handler(event, context):
     
     # Else, if user is denied, delete all images and classifier info about them
     else:
+        face_id = event['faceID']
         delete_face_from_rekognition(FaceId)
         delete_visitor_image_from_s3(s3_object_key)
     
