@@ -150,7 +150,7 @@ def store_otp(otp, phone_number, range=EXPIRY_5):
     password = {
         'PhoneNumber': phone_number,
         'OTP': otp,
-        'ExpTime': str(int(time.time()) + range)
+        'ExpTime': int(time.time()) + range
     }
     dynamo_passcodes_table.put_item(Item=password)
 
