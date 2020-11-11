@@ -62,7 +62,7 @@ def create_passcode(phone_number:str) -> dict:
     
 
 def delete_face_from_rekognition(FaceId):
-    return rekognition.delete_faces()
+    return rekognition.delete_faces(
         CollectionId=COLLECTION,
         FaceIds=[FaceId]
     )
@@ -76,15 +76,12 @@ def delete_visitor_image_from_s3(s3_object_key):
 
 
 def lambda_handler(event, context):
-    if event['status'] == "accept":
-        name = event['name']
-        phone_number = event['phone']
-        face_id = event['faceID']
-        image_name = event['filename']
+    name = event['name']
+    phone_number = event['phone']
+    face_id = event['faceID']
+    image_name = event['filename']
         
-        FaceId = event['FaceId'] # Rekognition FaceId (in case we need to delete it)
-        s3_object_key = event['s3_object_key'] # In case we need to delete it from s3
-    
+    if event['status'] == "accept":
         visitor = create_visitor(face_id, name, phone_number, image_name)
         passcode = create_passcode(phone_number)
         message = create_sms(name, passcode['OTP'])
@@ -100,9 +97,8 @@ def lambda_handler(event, context):
     
     # Else, if user is denied, delete all images and classifier info about them
     else:
-        face_id = event['faceID']
-        delete_face_from_rekognition(FaceId)
-        delete_visitor_image_from_s3(s3_object_key)
+        delete_face_from_rekognition(face_id)
+        delete_visitor_image_from_s3(f'{image_name}.jpg')
     
     return {
         'statusCode': 200,
