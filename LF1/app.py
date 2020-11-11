@@ -5,12 +5,17 @@ from botocore.exceptions import ClientError
 import sys
 import cv2
 import json
-from random import randint
+# from random import randint
 import uuid
+import datetime
+import time
+import random
 
 COLLECTION = 'faces'  # Rekognition collection
 REGION = 'us-east-1'
 BUCKET = 'smart-door-image-store'  # s3://<ExternalImageId>/<ImageId>
+EXPIRY_5 = 60 * 5
+OWNER_PHONE_NUMBER = '+1blahblah'
 
 s3_client = boto3.client('s3')
 sns_client = boto3.client('sns')
@@ -69,10 +74,10 @@ def get_media_by_fragment_number(fragment_number, kvs_video_media_client):
     return kvs_video_media_client.get_media(
         StreamName="Assignment2-KVS1",
         StartSelector={
-            # 'StartSelectorType': 'FRAGMENT_NUMBER',
-            'StartSelectorType': 'NOW',
+            'StartSelectorType': 'FRAGMENT_NUMBER',
+            # 'StartSelectorType': 'NOW',
             # 'AfterFragmentNumber': payload['InputInformation']['KinesisVideo']['FragmentNumber']
-            # 'AfterFragmentNumber': fragment_number
+            'AfterFragmentNumber': fragment_number
         }
     )
 
@@ -105,7 +110,6 @@ def get_image_from_stream(payload):
 
 
 # Store face in s3 bucket and return ExternalImageId
-# def upload_visitor_image_to_s3(dict_payload, ExternalImageId):
 def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     unique_img_id = str(uuid.uuid4())  # Generate a unique identifier for this image
     # Upload the file to S3
@@ -118,21 +122,54 @@ def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     return object_key
 
 
+# Udpate visitor information with new image
+def update_visitor(visitor, s3_object_key):
+    external_image_id = visitor['Item']['ExternalImageId']
+    name = visitor['Item']['name']
+    phone_number = visitor['Item']['phoneNumber']
+
+    new_photo = {
+        'objectKey': s3_object_key,
+        'bucket': bucket,
+        'createdTimestamp': datetime.datetime.now().isoformat(timespec='seconds')
+    }
+    photos = visitor['Item']['photos']
+    photos.append(new_photo)
+
+    visitor = {
+        'ExternalImageId': external_image_id,
+        'name': name,
+        'phoneNumber': phone_number,
+        'photos': photos
+    }
+    dynamo_visitors_table.put_item(Item=visitor)
+
+
+# store otp and expiration for known visitor
+def store_otp(otp, phone_number, range=EXPIRY_5):
+    password = {
+        'PhoneNumber': phone_number,
+        'OTP': otp,
+        'ExpTime': str(int(time.time()) + range)
+    }
+    dynamo_passcodes_table.put_item(Item=password)
+
+
 # send SMS with OTP if it's a known visitor
-def send_otp(otp, phone_number):
-    message = "Welcome back! Here is your one time password: \"" + otp + "\". This password will expire in 5 minutes."
+def send_sms_to_known_visitor(otp, phone_number):
+    message = "Welcome back! Here is your one time password: \"" + otp + "\". This password will expire in 5 minutes. Note: If you received multiple OTPs, please use the one from the most recent text."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
 # send SMS requesting access if it's an unknown visitor
-def send_review(face_id):
+def send_review_to_owner(ExternalImageId, s3_object_key):
     # TODO: update with group member's phone
-    phone_number = 000
+    phone_number = OWNER_PHONE_NUMBER  # Hardcoded for now. Maybe we add a DB entry in the future
     # include face and file ID
-    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "faceid=" + face_id + "&filename=" + filename
+    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key
 
     # TODO: make sure format of variable in URL matches LF0
-    message = "Hello, you have recieved a visitor verification request. For more information please go here: " + visitor_verification_link
+    message = "Hello, you have received a visitor verification request. For more information please go here: " + visitor_verification_link
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
@@ -145,11 +182,6 @@ def get_ExternalImageId(dict_payload):
 
 
 def lambda_handler(event, context):
-    # print('i was triggered')
-    # return {
-    #        'statusCode': 200,
-    #        'body': json.dumps('Hello from Lambda!')
-    #    }
     payload = get_payload_from_event(event)  # Decode the event record
 
     ''' If known visitor, do the following:
@@ -168,20 +200,22 @@ def lambda_handler(event, context):
         index_faces(s3_object_key, ExternalImageId)
 
         # Return visitor information by finding photoID key in visitor table
-        # visitor = dynamo_visitors_table.get_item(Key=faceID)
-        # phone_number = visitor['phoneNumber']
+        visitor = dynamo_visitors_table.get_item(Key={'ExternalImageId': ExternalImageId})
+        print(visitor)
 
-        # generate 6 digit OTP
-        range_start = 10 ** (6 - 1)
-        range_end = (10 ** 6) - 1
-        otp = randint(range_start, range_end)
-
-        # append faceID in visitor dynamoDB object list
+        # append faceId in visitor dynamoDB object list
+        update_visitor(visitor, s3_object_key)
 
         # add password and expiriation to password dynamo
+        phone_number = visitor['Item']['phoneNumber']
 
-        # send sms to returning visitor
-        # send_otp(otp, phone_number)
+        # create and store OTP in passwords table
+        otp = str(random.randint(100001, 999999))
+        # otp = 1234
+        store_otp(otp, phone_number)
+
+        # Send sms to returning visitor
+        send_sms_to_known_visitor(otp, phone_number)
 
     # Else, send visitor info to owner for review
     else:
@@ -189,7 +223,7 @@ def lambda_handler(event, context):
         ExternalImageId = str(uuid.uuid4())
 
         # store new face in visitors table
-        send_review(ExternalImageId)
+        send_review_to_owner(ExternalImageId, s3_object_key)
 
     return {
         'statusCode': 200,
