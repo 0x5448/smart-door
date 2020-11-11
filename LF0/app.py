@@ -78,6 +78,7 @@ def delete_visitor_image_from_s3(s3_object_key):
 def lambda_handler(event, context):
     name = event['name']
     phone_number = event['phone']
+    ExternalImageId = event['ExternalImageId']
     face_id = event['FaceId'] # We need the FaceId from Rek in case user is denied and we have to delete it
     s3_object_key = event['S3ObjKey']
         
