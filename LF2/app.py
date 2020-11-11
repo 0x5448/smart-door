@@ -47,14 +47,12 @@ def lambda_handler(event, context):
     expired = expiry(record['ExpTime'])
     matching = match(record['OTP'], input_otp)
 
-    if not expired:
-        if matching:
-            message = ACC_G
-        else:
-            message = ACC_D
-            print(f'OTP: {record["OTP"]}, i_otp: {input_otp}')
-    else:
+    if not matching:
+        message = ACC_D
+    elif expired:
         message = ACC_E
+    else:
+        message = ACC_G
 
     return {
         'statusCode': 200,
