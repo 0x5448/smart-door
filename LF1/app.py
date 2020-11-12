@@ -167,6 +167,9 @@ def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
     # include face and file ID
     visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
 
+    # make s3object public so the image loads in the WP1 page
+    s3_client.put_object_acl(Bucket=BUCKET, Key=s3_object_key, ACL="public-read")
+
     # TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have received a visitor verification request. For more information please go here: " + visitor_verification_link
     sns_client.publish(PhoneNumber=phone_number, Message=message)

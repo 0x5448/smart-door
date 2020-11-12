@@ -90,7 +90,9 @@ def lambda_handler(event, context):
         try:
             visitors.put_item(Item=visitor)
             passcodes.put_item(Item=passcode)
-            send_sms(phone_number, message)
+            send_sms_to_visitor(phone_number, message)
+            # make s3object private after owner gives permission
+            s3_client.put_object_acl(Bucket=BUCKET, Key=s3_object_key, ACL="private")
             #message = 'Approved visitor'        
         except Exception as e:
             message = str(e)
