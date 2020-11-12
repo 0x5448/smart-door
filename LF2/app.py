@@ -5,28 +5,40 @@ import boto3
 import time
 from boto3.dynamodb.conditions import Key
 
-ACC_D = 'Access denied. Your OTP is wrong or invalid'
-ACC_E = 'Access denied. Expired OTP, try again in sometime'
-ACC_G = 'Access granted, Welcome!'
+DENIED = 'Access denied. Invalid OTP or time expired. (Must enter OTP within 5 minutes of receiving it.)'
+EXPIRED = 'Access denied. Expired OTP, try again in sometime'
+GRANTED = 'Access granted. Welcome!'
 
 TEST_SIZE = 10
 
 dynamo_resource = boto3.resource('dynamodb')
 dynamo_passcodes_table = dynamo_resource.Table('passcodes')
 
-def expiry(timestamp):
+
+def otp_has_expired(timestamp):
     return int(time.time()) > int(timestamp)
 
 
-def match(OTP, input_otp):
+def visitor_otp_matches_database_otp(OTP, input_otp):
     return OTP == input_otp
 
 
-def query_otp(phone_number):
+def get_otp_item_by_phone(phone_number):
     response = dynamo_passcodes_table.query(
         KeyConditionExpression=Key('PhoneNumber').eq(phone_number)
     )
     return response['Items'][0]
+
+
+def validate_otp(db_item, input_otp):
+    if db_item is None:
+        return DENIED
+    if not visitor_otp_matches_database_otp(db_item['OTP'], input_otp):
+        return DENIED
+    elif otp_has_expired(db_item['ExpTime']):
+        return EXPIRED
+    else:
+        return GRANTED
 
 
 def lambda_handler(event, context):
@@ -34,25 +46,13 @@ def lambda_handler(event, context):
     input_otp = event['password']
 
     try:
-        record = query_otp(input_phone)
+        db_item = get_otp_item_by_phone(input_phone)
     except Exception as e:
-        record = None
+        db_item = None
         print(e)
 
-    print(record)
-
-    if record is None:
-        message = ACC_D
-
-    expired = expiry(record['ExpTime'])
-    matching = match(record['OTP'], input_otp)
-
-    if not matching:
-        message = ACC_D
-    elif expired:
-        message = ACC_E
-    else:
-        message = ACC_G
+    message = validate_otp(db_item, input_otp)
+    print(message)
 
     return {
         'statusCode': 200,
