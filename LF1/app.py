@@ -40,8 +40,7 @@ def index_faces(key, ExternalImageId, attributes=()):
         ExternalImageId=ExternalImageId,
         DetectionAttributes=attributes,
     )
-    # return response['FaceRecords']['ImageId']
-    return
+    return response['FaceRecords'][0]['Face']['FaceId']
 
 
 def get_payload_from_event(event):
@@ -157,16 +156,16 @@ def store_otp(otp, phone_number, range=EXPIRY_5):
 
 # send SMS with OTP if it's a known visitor
 def send_sms_to_known_visitor(otp, phone_number):
-    message = "Welcome back! Here is your one time password: \"" + otp + "\". This password will expire in 5 minutes. Note: If you received multiple OTPs, please use the one from the most recent text."
+    message = "Welcome back! Here is your one time password: \"" + otp + "\" for " + . This password will expire in 5 minutes. Note: If you received multiple OTPs, please use the one from the most recent text."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
 # send SMS requesting access if it's an unknown visitor
-def send_review_to_owner(ExternalImageId, s3_object_key):
+def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
     # TODO: update with group member's phone
     phone_number = OWNER_PHONE_NUMBER  # Hardcoded for now. Maybe we add a DB entry in the future
     # include face and file ID
-    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key
+    visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
 
     # TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have received a visitor verification request. For more information please go here: " + visitor_verification_link
@@ -183,6 +182,7 @@ def get_ExternalImageId(dict_payload):
 
 def lambda_handler(event, context):
     payload = get_payload_from_event(event)  # Decode the event record
+    visitor_image_local_path = get_image_from_stream(payload)
 
     ''' If known visitor, do the following:
         1. Store to s3 in visitor's folder:  s3://<ExternalImageId>/<newImg>
@@ -192,7 +192,6 @@ def lambda_handler(event, context):
     '''
     if is_known_visitor(payload):
         ExternalImageId = get_ExternalImageId(payload)
-        visitor_image_local_path = get_image_from_stream(payload)
 
         s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
 
@@ -221,9 +220,17 @@ def lambda_handler(event, context):
     else:
         # Generate a unique ID for the new visitor
         ExternalImageId = str(uuid.uuid4())
+        
+        # Upload to S3 -- Need to test the next few lines
+        s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
+        
+        # Index in Rekognition
+        FaceId = index_faces(s3_object_key, ExternalImageId)
 
         # store new face in visitors table
-        send_review_to_owner(ExternalImageId, s3_object_key)
+        send_review_to_owner(ExternalImaged, FaceId, s3_object_key)
+        
+        
 
     return {
         'statusCode': 200,
