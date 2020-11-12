@@ -31,6 +31,7 @@
 
           <div class="inner">
             <div class="inner">
+              <div id="visitor-image"></div>
               <form>
                 <div class="form-group">
                   <label for="phone">Vistor's Name:</label>
@@ -56,6 +57,17 @@
     </div>
 
     <script>
+
+      var url = window.location.href
+      variables = url.split('?')[1].split('&')
+      s3object = variables[1].split('=')
+      S3ObjKey = s3object[1]
+
+      var img = document.createElement("img");
+      img.src = "https://smart-door-image-store.s3.amazonaws.com/" + S3ObjKey;
+      var src = document.getElementById("visitor-image");
+      src.appendChild(img);
+
       var apiUrl = "https://bhfq3cpmxi.execute-api.us-east-1.amazonaws.com/v1/visitor-verification";
       function parseURL(url){
         variables = url.split('?')[1].split('&')
