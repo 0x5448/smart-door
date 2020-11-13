@@ -15,7 +15,7 @@ COLLECTION = 'faces'  # Rekognition collection
 REGION = 'us-east-1'
 BUCKET = 'smart-door-image-store'  # s3://<ExternalImageId>/<ImageId>
 EXPIRY_5 = 60 * 5
-OWNER_PHONE_NUMBER = '+1blahblah'
+OWNER_PHONE_NUMBER = '+13473563326'
 
 s3_client = boto3.client('s3')
 sns_client = boto3.client('sns')
@@ -40,7 +40,11 @@ def index_faces(key, ExternalImageId, attributes=()):
         ExternalImageId=ExternalImageId,
         DetectionAttributes=attributes,
     )
-    return response['FaceRecords'][0]['Face']['FaceId']
+    try: 
+        return response['FaceRecords'][0]['Face']['FaceId']
+    except:
+        print("index_faces() response:" + str(response))
+        return None
 
 
 def get_payload_from_event(event):
@@ -54,7 +58,7 @@ def get_payload_from_event(event):
 # Get an endpoint so that we can send the GET_MEDIA request to it later
 def get_get_media_endpoint():
     return kvs_video_client.get_data_endpoint(
-        StreamName="Assignment2-KVS1",
+        StreamName="KVS1",
         APIName="GET_MEDIA"
     )
 
@@ -71,10 +75,10 @@ def start_kvs_session(endpoint_response):
 # Now that we started a session, we can finally call GET_MEDIA
 def get_media_by_fragment_number(fragment_number, kvs_video_media_client):
     return kvs_video_media_client.get_media(
-        StreamName="Assignment2-KVS1",
+        StreamName="KVS1",
         StartSelector={
             'StartSelectorType': 'FRAGMENT_NUMBER',
-            # 'StartSelectorType': 'NOW',
+             #'StartSelectorType': 'NOW',
             # 'AfterFragmentNumber': payload['InputInformation']['KinesisVideo']['FragmentNumber']
             'AfterFragmentNumber': fragment_number
         }
@@ -156,7 +160,7 @@ def store_otp(otp, phone_number, range=EXPIRY_5):
 
 # send SMS with OTP if it's a known visitor
 def send_sms_to_known_visitor(otp, phone_number):
-    message = "Welcome back! Here is your one time password: \"" + otp + "\" for " + . This password will expire in 5 minutes. Note: If you received multiple OTPs, please use the one from the most recent text."
+    message = "Welcome back! Here is your one time password: \"" + otp + "\". " + "This password will expire in 5 minutes. Note: If you received multiple OTPs, please use the one from the most recent text."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
@@ -167,13 +171,16 @@ def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
     # include face and file ID
     visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
 
+    # make s3object public so the image loads in the WP1 page
+    s3_client.put_object_acl(Bucket=BUCKET, Key=s3_object_key, ACL="public-read")
+
     # TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have received a visitor verification request. For more information please go here: " + visitor_verification_link
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
 def is_known_visitor(dict_payload):
-    return len(dict_payload['FaceSearchResponse']) > 0
+    return len(dict_payload['FaceSearchResponse'][0]['MatchedFaces']) > 0
 
 
 def get_ExternalImageId(dict_payload):
@@ -181,7 +188,11 @@ def get_ExternalImageId(dict_payload):
 
 
 def lambda_handler(event, context):
+    print(event)
+    #exit(1)
     payload = get_payload_from_event(event)  # Decode the event record
+    print(payload)
+    #exit(1)
     visitor_image_local_path = get_image_from_stream(payload)
 
     ''' If known visitor, do the following:
@@ -191,12 +202,17 @@ def lambda_handler(event, context):
         4. Send OTP to visitor
     '''
     if is_known_visitor(payload):
+        print(payload)
         ExternalImageId = get_ExternalImageId(payload)
 
         s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
+        #exit(1)
 
-        # Index new image of known visitor to train model
-        index_faces(s3_object_key, ExternalImageId)
+        # (try to) Index new image of known visitor to train model
+        if not index_faces(s3_object_key, ExternalImageId):
+            print("Error: Couldn't index face")
+            exit(1)
+                
 
         # Return visitor information by finding photoID key in visitor table
         visitor = dynamo_visitors_table.get_item(Key={'ExternalImageId': ExternalImageId})
@@ -224,11 +240,14 @@ def lambda_handler(event, context):
         # Upload to S3 -- Need to test the next few lines
         s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
         
-        # Index in Rekognition
+        # (try to) Index new image of unknown visitor
+        #if not index_faces(s3_object_key, ExternalImageId):
+        #    print("Error: Couldn't index face")
+        #    exit(1)
         FaceId = index_faces(s3_object_key, ExternalImageId)
-
+        
         # store new face in visitors table
-        send_review_to_owner(ExternalImaged, FaceId, s3_object_key)
+        send_review_to_owner(ExternalImageId, FaceId, s3_object_key)
         
         
 
