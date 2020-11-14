@@ -43,7 +43,7 @@ def index_faces(key, ExternalImageId, attributes=()):
     try: 
         return response['FaceRecords'][0]['Face']['FaceId']
     except:
-        print("index_faces() response:" + str(response))
+        #print("index_faces() response:" + str(response))
         return None
 
 
@@ -77,10 +77,10 @@ def get_media_by_fragment_number(fragment_number, kvs_video_media_client):
     return kvs_video_media_client.get_media(
         StreamName="KVS1",
         StartSelector={
-            'StartSelectorType': 'FRAGMENT_NUMBER',
-             #'StartSelectorType': 'NOW',
+            #'StartSelectorType': 'FRAGMENT_NUMBER',
+             'StartSelectorType': 'NOW',
             # 'AfterFragmentNumber': payload['InputInformation']['KinesisVideo']['FragmentNumber']
-            'AfterFragmentNumber': fragment_number
+            #'AfterFragmentNumber': fragment_number
         }
     )
 
@@ -107,8 +107,14 @@ def get_image_from_stream(payload):
         # can later extract a frame from it
         f.write(clip)
         vidcap = cv2.VideoCapture(vid_temp_location)  # Capture an img from it
-        success, image = vidcap.read()
-        cv2.imwrite(img_temp_location, image)  # Save image to file
+        vidCapSuccess, image = vidcap.read()
+        if vidCapSuccess is False:
+            print("Vidcap problem")
+            exit(1)
+        writeStatusSuccess = cv2.imwrite(img_temp_location, image)  # Save image to file
+        if writeStatusSuccess is False:
+            print("Image write problem")
+            exit(1)
         return img_temp_location
 
 
@@ -117,6 +123,17 @@ def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     unique_img_id = str(uuid.uuid4())  # Generate a unique identifier for this image
     # Upload the file to S3
     object_key = ExternalImageId + '/' + unique_img_id + '.jpg'
+    try:
+        response = s3_client.upload_file(visitor_image_local_path, bucket, object_key)
+        return object_key
+    except ClientError as e:
+        logging.error(e)
+    return object_key
+    
+    
+def upload_unknown_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
+    # Upload the file to S3
+    object_key = ExternalImageId
     try:
         response = s3_client.upload_file(visitor_image_local_path, bucket, object_key)
         return object_key
@@ -170,10 +187,7 @@ def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
     phone_number = OWNER_PHONE_NUMBER  # Hardcoded for now. Maybe we add a DB entry in the future
     # include face and file ID
     visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
-
-    # make s3object public so the image loads in the WP1 page
-    s3_client.put_object_acl(Bucket=BUCKET, Key=s3_object_key, ACL="public-read")
-
+    print("BOUTA SEND TO OWNER")
     # TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have received a visitor verification request. For more information please go here: " + visitor_verification_link
     sns_client.publish(PhoneNumber=phone_number, Message=message)
@@ -188,11 +202,9 @@ def get_ExternalImageId(dict_payload):
 
 
 def lambda_handler(event, context):
-    print(event)
-    #exit(1)
+    
     payload = get_payload_from_event(event)  # Decode the event record
     print(payload)
-    #exit(1)
     visitor_image_local_path = get_image_from_stream(payload)
 
     ''' If known visitor, do the following:
@@ -202,7 +214,6 @@ def lambda_handler(event, context):
         4. Send OTP to visitor
     '''
     if is_known_visitor(payload):
-        print(payload)
         ExternalImageId = get_ExternalImageId(payload)
 
         s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
@@ -216,6 +227,7 @@ def lambda_handler(event, context):
 
         # Return visitor information by finding photoID key in visitor table
         visitor = dynamo_visitors_table.get_item(Key={'ExternalImageId': ExternalImageId})
+        print("printing visitor item", str(visitor))
         print(visitor)
 
         # append faceId in visitor dynamoDB object list
@@ -229,26 +241,29 @@ def lambda_handler(event, context):
         # otp = 1234
         store_otp(otp, phone_number)
 
+        print("abouta send a text to the visitor")
         # Send sms to returning visitor
         send_sms_to_known_visitor(otp, phone_number)
 
     # Else, send visitor info to owner for review
     else:
         # Generate a unique ID for the new visitor
-        ExternalImageId = str(uuid.uuid4())
+        #ExternalImageId = str(uuid.uuid4())
         
         # Upload to S3 -- Need to test the next few lines
-        s3_object_key = upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
+        ExternalImageId = 'current-visitor.jpg' # Use a constant so that if this gets triggered multiple times, we won't write a bunch of different images
+        s3_object_key = upload_unknown_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
+        
         
         # (try to) Index new image of unknown visitor
         #if not index_faces(s3_object_key, ExternalImageId):
         #    print("Error: Couldn't index face")
         #    exit(1)
-        FaceId = index_faces(s3_object_key, ExternalImageId)
+        #FaceId = index_faces(s3_object_key, ExternalImageId)
+        FaceId = "abc"
         
         # store new face in visitors table
         send_review_to_owner(ExternalImageId, FaceId, s3_object_key)
-        
         
 
     return {

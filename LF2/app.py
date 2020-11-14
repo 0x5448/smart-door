@@ -50,6 +50,7 @@ def lambda_handler(event, context):
     except Exception as e:
         db_item = None
         print(e)
+    print("db_item is:", str(db_item))
 
     message = validate_otp(db_item, input_otp)
     print(message)
@@ -58,3 +59,4 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'body': json.dumps(message)
     }
+
