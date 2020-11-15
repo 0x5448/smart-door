@@ -11,18 +11,16 @@ BUCKET = 'smart-door-image-store'
 REGION = 'us-east-1'
 COLLECTION = 'faces'
 EXPIRY_5 = 60 * 5
-
-# change to relevant s3 web url during deployment
-WP1_URL = 'https://smart-door-b1.s3.amazonaws.com/wp1.html' 
-WP2_URL = 'https://smart-door-b1.s3.amazonaws.com/wp2.html' 
+OWNER_URL = 'https://d2gzbq8f8019ge.cloudfront.net/wp1.html' 
+VISITOR_URL = 'https://d2gzbq8f8019ge.cloudfront.net/wp2.html' 
 
 sms_client = boto3.client('sns')
 s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 rekognition = boto3.client('rekognition', REGION)
 dynamodb = boto3.resource('dynamodb')
-visitors = dynamodb.Table('visitors')
-passcodes = dynamodb.Table('passcodes')
+visitors_table = dynamodb.Table('visitors')
+passcodes_table = dynamodb.Table('passcodes')
 
 
 def create_visitor_item(ExternalImageId:str, name:str, phone_number:str, s3_object_key:str) -> dict:
@@ -46,7 +44,7 @@ def otp():
 def expiry(range=EXPIRY_5):
     return int(int(time.time()) + range)
     
-def build_message(name, otp, link=WP2_URL):
+def build_message(name, otp, link=VISITOR_URL):
     message =  f'Hey {name}, Use OTP: {otp} at {link} to gain access. OTP will expire in 5 minutes. Note: if you received multiple OTPs, please use the one from the most recent text.'
     return message
 
@@ -111,13 +109,13 @@ def lambda_handler(event, context):
     
     name = event['name']
     phone_number = "+1" + event['phone']
-    print("phone is: ", str(phone_number)))
+    print("phone is: ", str(phone_number))
     #ExternalImageId = event['ExternalImageId']
     #face_id = event['FaceId'] # We need the FaceId from Rek in case user is denied and we have to delete it
     #s3_object_key = event['S3ObjKey']
     s3_object_key = 'current-visitor.jpg'
         
-    if event['status'] == "accept":
+    if event['status'] == "authorized":
         ''' 
         1. create ExternalImageId
         2. upload to s3 with ExternalImageId
@@ -134,17 +132,17 @@ def lambda_handler(event, context):
     
         # Upload items to database
         try:
-            visitors.put_item(Item=visitor_item)
-            passcodes.put_item(Item=passcode_item)
+            visitors_table.put_item(Item=visitor_item)
+            passcodes_table.put_item(Item=passcode_item)
             send_sms_to_visitor(phone_number, message)
-            #message = 'Approved visitor'        
+            message = 'Approved visitor'        
         except Exception as e:
             message = str(e)
             print(e)
     
-    # Else, if user is denied, delete all images and classifier info about them
+    # Else, if user is denied, perhaps delete the recent image from s3
     else:
-        pass
+        message = 'Denied visitor'
         #delete_face_from_rekognition(face_id)
         #delete_visitor_image_from_s3(s3_object_key)
     
