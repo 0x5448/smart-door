@@ -37,7 +37,7 @@ When we view the Kinesis Video Stream (the first stage of the processor) monitor
 after a few seconds of the stream being triggered.  
 <img src="https://github.com/theodorehadges/smart-door/blob/main/media/motion-sensor-demo.gif" width="70%" />
 
-What happens next is conditional and depends on whether the visitor (me in this cas) is a new or returning (approved) visitor.
+What happens next is conditional and depends on whether the visitor (me in this case) is a new or returning (approved) visitor.
 
 #### If new visitor:
 If they are a new visitor, a notification will be sent to the homeowner via SNS in the form of a text message.
@@ -79,12 +79,12 @@ the website.
 
 Here is the flowchart for this process:  
 
-<img src="https://github.com/theodorehadges/chatbot/blob/main/media/smart-door-codepipeline.png" />
+<img src="https://github.com/theodorehadges/smart-door/blob/main/media/smart-door-codepipeline.png" />
 
 ### Full Architecture Diagram  
 
 Here is the flowchart of our full architecture diagram.  
-<img src="https://github.com/theodorehadges/chatbot/blob/main/media/architecture-diagram.png" />
+<img src="https://github.com/theodorehadges/smart-door/blob/main/media/architecture-diagram.png" />
 
 There are a few services we haven't yet added to this diagram:
  - We used some S3 buckets for image storage and the front-end
@@ -95,7 +95,7 @@ There are a few services we haven't yet added to this diagram:
 ## Individual Components
 
 ### Hardware
-<img src="https://github.com/theodorehadges/chatbot/blob/main/media/annotated-pi.png" />
+<img src="https://github.com/theodorehadges/smart-door/blob/main/media/annotated-pi.png" />
 
 #### Bill of Materials:
 - Raspberry Pi 4
@@ -165,7 +165,7 @@ When a visitor face matches a previously indexed face with at least 85% confiden
 visitor is indexed to train the model on this visitor. Here is what the response looks like when there is 
 a person with ExternalImageID `ted-hadges` who has already visited twice:  
 
-<img src="https://github.com/theodorehadges/chatbot/blob/main/media/matched-faces.png" />
+<img src="https://github.com/theodorehadges/smart-door/blob/main/media/matched-faces.png" />
 
 ### Lambda LF1
 LF1 receives the video data stream event and does some checks. If the Rekognition response shows that there is a
