@@ -11,6 +11,7 @@ from boto3.dynamodb.conditions import Key
 
 dynamo_resource = boto3.resource('dynamodb')
 passcodes_table = dynamo_resource.Table('passcodes')
+visitors_table = dynamo_resource.Table('visitors')
 
 def void_otp(phone_number):
     password = {
@@ -46,14 +47,16 @@ def validate_otp(db_item, input_otp):
         return "GRANTED"
 
 def get_name_from_externalid(externalid):
-    pass
+    visitor = visitors_table.get_item(Key={'ExternalImageId': externalid})
+    name = visitor['Item']['name']
+    return name
 
 def lambda_handler(event, context):
     input_phone = event['phone']
     input_otp = event['password']
+    input_external_id = event['externalID']
 
-    # externalid = event['externalid']
-    # name = get_name_from_externalid(externalid)
+    name = get_name_from_externalid(input_external_id)
 
     try:
         db_item = get_otp_item_by_phone(input_phone)
@@ -71,7 +74,7 @@ def lambda_handler(event, context):
 
     result = {
         'status' : status,
-        # 'name' : name
+        'name' : name
     }
 
     return {
