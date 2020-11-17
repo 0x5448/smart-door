@@ -175,8 +175,8 @@ def store_otp(otp, phone_number, range=EXPIRY_5):
 
 
 # send SMS with OTP if it's a known visitor
-def send_sms_to_known_visitor(otp, phone_number):
-    message = "Welcome back! Here is your one time password: \"" + otp + "\". " + "This password will expire in 5 minutes. Please enter it on this webpage: " + VISITOR_URL + ". Note: If you received multiple OTPs, please use the one from the most recent text."
+def send_sms_to_known_visitor(otp, phone_number, external_image_id):
+    message = "Welcome back! Here is your one time password: \"" + otp + "\". " + "This password will expire in 5 minutes. Please enter it on this webpage: " + VISITOR_URL + "?" + "ExternalImageId=" + external_image_id + ". Note: If you received multiple OTPs, please use the one from the most recent text."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
@@ -236,7 +236,7 @@ def lambda_handler(event, context):
 
         print("abouta send a text to the visitor")
         # Send sms to returning visitor
-        send_sms_to_known_visitor(otp, phone_number)
+        send_sms_to_known_visitor(otp, phone_number, ExternalImageId)
 
     # Else, send visitor info to owner for review
     else:

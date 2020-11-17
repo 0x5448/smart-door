@@ -11,7 +11,15 @@ from boto3.dynamodb.conditions import Key
 
 dynamo_resource = boto3.resource('dynamodb')
 passcodes_table = dynamo_resource.Table('passcodes')
+visitors_table = dynamo_resource.Table('visitors')
 
+def void_otp(phone_number):
+    password = {
+        'PhoneNumber': phone_number,
+        'OTP': '-1',
+        'ExpTime': '1'
+    }
+    passcodes_table.put_item(Item=password)
 
 def otp_has_expired(timestamp):
     return int(time.time()) > int(timestamp)
@@ -38,10 +46,17 @@ def validate_otp(db_item, input_otp):
     else:
         return "GRANTED"
 
+def get_name_from_externalid(externalid):
+    visitor = visitors_table.get_item(Key={'ExternalImageId': externalid})
+    name = visitor['Item']['name']
+    return name
 
 def lambda_handler(event, context):
     input_phone = event['phone']
     input_otp = event['password']
+    input_external_id = event['externalID']
+
+    name = get_name_from_externalid(input_external_id)
 
     try:
         db_item = get_otp_item_by_phone(input_phone)
@@ -51,12 +66,21 @@ def lambda_handler(event, context):
     print("db_item is:", str(db_item))
 
     status = validate_otp(db_item, input_otp)
+
+    if status == 'GRANTED':
+        void_otp(input_phone)
+
     print(status)
+
+    result = {
+        'status' : status,
+        'name' : name
+    }
 
     return {
         'statusCode': 200,
-        #'body': json.dumps(status)
-        'body': str(status)
+        'body': json.dumps(result)
+        #'body': str(status)
     }
 
 
