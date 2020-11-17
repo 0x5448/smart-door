@@ -44,8 +44,8 @@ def otp():
 def expiry(range=EXPIRY_5):
     return int(int(time.time()) + range)
     
-def build_message(name, otp, link=VISITOR_URL):
-    message =  f'Hey {name}, Use OTP: {otp} at {link} to gain access. OTP will expire in 5 minutes. Note: if you received multiple OTPs, please use the one from the most recent text.'
+def build_message(name, external_image_id, otp, link=VISITOR_URL):
+    message =  f'Hey {name}, Use OTP: {otp} at ' + link + "?" + "ExternalImageId=" + external_image_id + ' to gain access. OTP will expire in 5 minutes. Note: if you received multiple OTPs, please use the one from the most recent text.'
     return message
 
 def send_sms_to_visitor(phone_number, message):
@@ -128,7 +128,7 @@ def lambda_handler(event, context):
         # Buid items to be uploaded in database
         visitor_item = create_visitor_item(ExternalImageId, name, phone_number, s3_object_key)
         passcode_item = create_passcode_item(phone_number)
-        message = build_message(name, passcode_item['OTP'])
+        message = build_message(name, ExternalImageId, passcode_item['OTP'])
     
         # Upload items to database
         try:
