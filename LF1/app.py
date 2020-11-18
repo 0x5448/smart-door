@@ -41,10 +41,10 @@ def index_faces(key, ExternalImageId, attributes=()):
         ExternalImageId=ExternalImageId,
         DetectionAttributes=attributes,
     )
-    try: 
+    try:
         return response['FaceRecords'][0]['Face']['FaceId']
     except:
-        #print("index_faces() response:" + str(response))
+        # print("index_faces() response:" + str(response))
         return None
 
 
@@ -78,10 +78,10 @@ def get_media_by_fragment_number(fragment_number, kvs_video_media_client):
     return kvs_video_media_client.get_media(
         StreamName="KVS1",
         StartSelector={
-            #'StartSelectorType': 'FRAGMENT_NUMBER',
-             'StartSelectorType': 'NOW',
+            # 'StartSelectorType': 'FRAGMENT_NUMBER',
+            'StartSelectorType': 'NOW',
             # 'AfterFragmentNumber': payload['InputInformation']['KinesisVideo']['FragmentNumber']
-            #'AfterFragmentNumber': fragment_number
+            # 'AfterFragmentNumber': fragment_number
         }
     )
 
@@ -128,8 +128,8 @@ def upload_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     except ClientError as e:
         logging.error(e)
     return object_key
-    
-    
+
+
 def upload_unknown_visitor_image_to_s3(visitor_image_local_path, ExternalImageId):
     # Upload the file to S3
     object_key = ExternalImageId
@@ -175,18 +175,18 @@ def store_otp(otp, phone_number, range=EXPIRY_5):
 
 
 # send SMS with OTP if it's a known visitor
-def send_sms_to_known_visitor(otp, phone_number, external_image_id):
-    message = "Welcome back! Here is your one time password: \"" + otp + "\". " + "This password will expire in 5 minutes. Please enter it on this webpage: " + VISITOR_URL + "?" + "ExternalImageId=" + external_image_id + ". Note: If you received multiple OTPs, please use the one from the most recent text."
+def send_sms_to_known_visitor(otp, phone_number, externalID):
+    message = "Welcome back! Here is your one time password: \"" + otp + "\". " + "This password will expire in 5 minutes. Please enter it on this webpage: " + VISITOR_URL + "?" + "externalID=" + externalID + ". Note: If you received multiple OTPs, please use the one from the most recent text."
     sns_client.publish(PhoneNumber=phone_number, Message=message)
 
 
 # send SMS requesting access if it's an unknown visitor
-#def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
+# def send_review_to_owner(ExternalImageId, FaceId, s3_object_key):
 def send_review_to_owner():
     # TODO: update with group member's phone
     phone_number = OWNER_PHONE_NUMBER  # Hardcoded for now. Maybe we add a DB entry in the future
     # include face and file ID
-    #visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
+    # visitor_verification_link = "https://smart-door-b1.s3.amazonaws.com/wp1.html" + "?" + "ExternalImageId=" + ExternalImageId + "&S3ObjKey=" + s3_object_key + "&FaceId=" + FaceId
     # TODO: make sure format of variable in URL matches LF0
     message = "Hello, you have received a visitor verification request. To see who is at your door and admit/deny them access, click here: " + OWNER_URL
     sns_client.publish(PhoneNumber=phone_number, Message=message)
@@ -220,7 +220,7 @@ def lambda_handler(event, context):
         if not index_faces(s3_object_key, ExternalImageId):
             print("Error: Couldn't index face")
             exit(1)
-                
+
         # Return visitor information by finding photoID key in visitor table
         visitor = dynamo_visitors_table.get_item(Key={'ExternalImageId': ExternalImageId})
 
@@ -240,22 +240,21 @@ def lambda_handler(event, context):
 
     # Else, send visitor info to owner for review
     else:
-        # Use a constant name so that if this gets triggered multiple times, 
+        # Use a constant name so that if this gets triggered multiple times,
         # we won't write a bunch of different image
         ExternalImageId = 'current-visitor.jpg'
         s3_object_key = upload_unknown_visitor_image_to_s3(visitor_image_local_path, ExternalImageId)
-        
+
         # (try to) Index new image of unknown visitor
-        #if not index_faces(s3_object_key, ExternalImageId):
+        # if not index_faces(s3_object_key, ExternalImageId):
         #    print("Error: Couldn't index face")
         #    exit(1)
-        #FaceId = index_faces(s3_object_key, ExternalImageId)
-        #FaceId = "abc"
-        
+        # FaceId = index_faces(s3_object_key, ExternalImageId)
+        # FaceId = "abc"
+
         # store new face in visitors table
-        #send_review_to_owner(ExternalImageId, FaceId, s3_object_key)
+        # send_review_to_owner(ExternalImageId, FaceId, s3_object_key)
         send_review_to_owner()
-        
 
     return {
         'statusCode': 200,

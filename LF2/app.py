@@ -5,21 +5,20 @@ import boto3
 import time
 from boto3.dynamodb.conditions import Key
 
-#DENIED = 'Access denied. Invalid OTP or time expired. (Must enter OTP within 5 minutes of receiving it.)'
-#EXPIRED = 'Access denied. Expired OTP, try again in sometime'
-#GRANTED = 'Access granted. Welcome!'
 
 dynamo_resource = boto3.resource('dynamodb')
 passcodes_table = dynamo_resource.Table('passcodes')
 visitors_table = dynamo_resource.Table('visitors')
 
+
 def void_otp(phone_number):
     password = {
         'PhoneNumber': phone_number,
-        'OTP': '-1',
-        'ExpTime': '1'
+        'OTP': '-1', # Flag as used
+        'ExpTime': int(int(time.time()))  # Expires at current time
     }
     passcodes_table.put_item(Item=password)
+
 
 def otp_has_expired(timestamp):
     return int(time.time()) > int(timestamp)
@@ -46,10 +45,12 @@ def validate_otp(db_item, input_otp):
     else:
         return "GRANTED"
 
+
 def get_name_from_externalid(externalid):
     visitor = visitors_table.get_item(Key={'ExternalImageId': externalid})
     name = visitor['Item']['name']
     return name
+
 
 def lambda_handler(event, context):
     input_phone = event['phone']
@@ -73,14 +74,13 @@ def lambda_handler(event, context):
     print(status)
 
     result = {
-        'status' : status,
-        'name' : name
+        'status': status,
+        'name': name
     }
 
     return {
         'statusCode': 200,
         'body': json.dumps(result)
-        #'body': str(status)
     }
 
 
